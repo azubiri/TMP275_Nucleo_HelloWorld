@@ -2,14 +2,14 @@
  
 // Read temperature from TMP275
 
-// I2C communication initialization. SDA and SCL pins are configured automatically
+// I2C communication initialization with corresponded I2C pin names (see PinNames.h of the type of the board)
 I2C i2c(I2C_SDA , I2C_SCL );
 // Initialization of LED from a Nucleo board
-// LED1 is the address of the led from F303RE, see PinNames.h of your board
+// LED1 is the address of the led from F303RE (see PinNames.h of your board)
 DigitalOut myled(LED1);
-// USER_BUTTON is the address of the led from F303RE, see PinNames.h of your board
+// USER_BUTTON is the address of the led from F303RE (see PinNames.h of your board)
 DigitalIn mybutton(USER_BUTTON);
-// To print readings from sensor via USB easily, PUTTY is required
+// To print readings from sensor via USB easily. UART pin names are required (see PinNames.h)
 Serial pc(SERIAL_TX, SERIAL_RX);
 
 // 7 bits where slave address is allocated (8th bit of uint8_t is 0)
@@ -24,7 +24,7 @@ static const uint8_t REG_CONF = 0x01; // Configuraton Register Address
 
 int main(){
     char buf[2];
-    int val;
+    int16_t val;
     float temp_c;
     int ack;
     
@@ -91,33 +91,30 @@ int main(){
             // Here temperature readings
             // Temperature will be stored in 2 bytes. So, they will be combined.
             i2c.read( TMP275_R_ADDR, buf, 2);
-            // First byte: All bits have information.
+            // First byte: All bits have information about a part of the reading.
             // But we need to free up space for information of the second byte.
             pc.printf("Byte 0: 0x%x\n\r", buf[0]);
             pc.printf("Byte 0: 0x%x\n\r", buf[0] << 4);
-            // Second byte: The 4 lasts bits are not useful
+            // Second byte: The 4 lasts bits are not useful, so they will be removed
+            // and 4 firsts bits will be moved to 4 bits to right
             pc.printf("Byte 1: 0x%x\n\r", buf[1]);
             pc.printf("Byte 1: 0x%x\n\r", buf[1] >> 4);
-            //Combine the bytes: 
+            //Combine both bytes: 
             val = (buf[0]) << 4 | (buf[1] >> 4);
-            pc.printf("Val: %x\n\r", val);
+            pc.printf("Val: 0x%x\n\r", val);
     
-            
             // Convert to 2's complement, since temperature can be negative
-            //if ( val > 0x7FF ) {
-            //  val |= 0xF000;
-            //}
-
+            val = 0xE70;
+            if ( val > 0x7FF ){
+                // It is the same to do val = (~val + 1)*(-1)
+                val |= 0xF000;
+            }
+        
             // Convert to float temperature value (Celsius)
             temp_c = val * 0.0625;
             pc.printf("Temperature: %.2f ºC\n\r", temp_c);
-            // Convert temperature to decimal format
-            //temp_c *= 100;
-            //pc.printf("Temperature: %u.%u ºC\n\r", 
-            //            (unsigned int)temp_c/100, 
-            //            (unsigned int)temp_c%100);
-            //pc.printf("\033[6A");
             
+            // Signal LED when a reading temperature is sending from sensor to board
             float time = 0.125;
             myled = !myled;
             wait(time);
@@ -130,8 +127,11 @@ int main(){
         }
         else {
             pc.printf("Connection is failed\n\r");
-            pc.printf("\033[1A");
         }
         pc.printf("Button: %d\n\r", mybutton.read());
+        // Signal LED when program is stopped
+        myled = 1;
+        wait(2);
+        myled = 0;
     }
 }
