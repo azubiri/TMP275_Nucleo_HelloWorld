@@ -23,10 +23,16 @@ static const uint8_t REG_TEMP = 0x00; // Temperature Register Address
 static const uint8_t REG_CONF = 0x01; // Configuraton Register Address
 
 int main(){
+    // Buffer where data packet will be stored
     char buf[2];
+    // 2 bytes where temperature readings will be allocated properly
     int16_t val;
+    // Temperature in degrees
     float temp_c;
+    // Acknowledment between board and sensor communication
     int ack;
+    // Time in seconds between readings
+    int8_t time = 1;
     
     // Make sure which are the reading and writing frames to start a reading or writing procedure
     pc.printf("Reading frame: 0x%x\n\r", TMP275_R_ADDR);
@@ -90,7 +96,7 @@ int main(){
         if(!ack){
             // Here temperature readings
             // Temperature will be stored in 2 bytes. So, they will be combined.
-            i2c.read( TMP275_R_ADDR, buf, 2);
+            ack = i2c.read( TMP275_R_ADDR, buf, 2);
             // First byte: All bits have information about a part of the reading.
             // But we need to free up space for information of the second byte.
             pc.printf("Byte 0: 0x%x\n\r", buf[0]);
@@ -104,7 +110,7 @@ int main(){
             pc.printf("Val: 0x%x\n\r", val);
     
             // Convert to 2's complement, since temperature can be negative
-            val = 0xE70;
+            //val = 0xE70; // To check if it works. 0xE70 represents -25 degrees
             if ( val > 0x7FF ){
                 // It is the same to do val = (~val + 1)*(-1)
                 val |= 0xF000;
@@ -114,24 +120,24 @@ int main(){
             temp_c = val * 0.0625;
             pc.printf("Temperature: %.2f ºC\n\r", temp_c);
             
-            // Signal LED when a reading temperature is sending from sensor to board
-            float time = 0.125;
+            // Signal from board LED when a reading temperature is done
+            // When the LED turns on 2 times quickly, it means sensor reads a sample
             myled = !myled;
-            wait(time);
+            wait(0.125);
             myled = !myled;
-            wait(time);
+            wait(0.125);
             myled = !myled;
-            wait(time);
+            wait(0.125);
             myled = !myled;
-            wait(1-time);
+            wait(time - 3*0.125);
         }
         else {
             pc.printf("Connection is failed\n\r");
         }
         pc.printf("Button: %d\n\r", mybutton.read());
-        // Signal LED when program is stopped
-        myled = 1;
-        wait(2);
-        myled = 0;
     }
+    // Signal LED when program is stopped
+    myled = 1;
+    wait(2);
+    myled = 0;
 }
